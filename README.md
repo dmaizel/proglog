@@ -1,0 +1,2 @@
+# proglog
+Distributed Commit Log
