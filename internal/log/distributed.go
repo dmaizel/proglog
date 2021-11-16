@@ -281,7 +281,7 @@ type snapshot struct {
 	reader io.Reader
 }
 
-func (s *snapshot) Pesist(sink raft.SnapshotSink) error {
+func (s *snapshot) Persist(sink raft.SnapshotSink) error {
 	if _, err := io.Copy(sink, s.reader); err != nil {
 		_ = sink.Cancel()
 		return err
