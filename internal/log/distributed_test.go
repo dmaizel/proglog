@@ -58,49 +58,61 @@ func TestMultipleNodes(t *testing.T) {
 		logs = append(logs, l)
 	}
 
-    records := []*api.Record{
-        {Value: []byte("first")},
-        {Value: []byte("second")},
-    }
+	records := []*api.Record{
+		{Value: []byte("first")},
+		{Value: []byte("second")},
+	}
 
-    // test our replication by appending some records to our leader server and check that Raft replicated the records to its followers.
-    for _, record := range records {
-        off, err := logs[0].Append(record)
-        require.NoError(t, err)
-        require.Eventually(t, func() bool {
-            for j := 0; j < nodeCount; j++ {
-                got, err := logs[j].Read(off)
-                if err != nil {
-                    return false
-                }
-                record.Offset = off
-                if !reflect.DeepEqual(got.Value, record.Value) {
-                    return false
-                }
-            }
-            return true
-        }, 500*time.Millisecond, 50*time.Millisecond)
-    }
+	// test our replication by appending some records to our leader server and check that Raft replicated the records to its followers.
+	for _, record := range records {
+		off, err := logs[0].Append(record)
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			for j := 0; j < nodeCount; j++ {
+				got, err := logs[j].Read(off)
+				if err != nil {
+					return false
+				}
+				record.Offset = off
+				if !reflect.DeepEqual(got.Value, record.Value) {
+					return false
+				}
+			}
+			return true
+		}, 500*time.Millisecond, 50*time.Millisecond)
+	}
 
-    // check that the leader stops replicating to a server that’s left the cluster, while continuing to replicate to the existing servers.
-    err := logs[0].Leave("1")
-    require.NoError(t, err)
+	servers, err := logs[0].GetServers()
+	require.NoError(t, err)
+	require.Equal(t, 3, len(servers))
+	require.True(t, servers[0].IsLeader)
+	require.False(t, servers[1].IsLeader)
+	require.False(t, servers[2].IsLeader)
 
-    time.Sleep(50 * time.Millisecond)
+	// check that the leader stops replicating to a server that’s left the cluster, while continuing to replicate to the existing servers.
+	err = logs[0].Leave("1")
+	require.NoError(t, err)
 
-    off, err := logs[0].Append(&api.Record{
-        Value: []byte("third"),
-    })
-    require.NoError(t, err)
+	time.Sleep(50 * time.Millisecond)
 
-    time.Sleep(50 * time.Millisecond)
+	servers, err = logs[0].GetServers()
+	require.Equal(t, 2, len(servers))
+	require.True(t, servers[0].IsLeader)
+	require.False(t, servers[1].IsLeader)
 
-    record, err := logs[1].Read(off)
-    require.IsType(t, api.ErrOffsetOutOfRange{}, err)
-    require.Nil(t, record)
+	off, err := logs[0].Append(&api.Record{
+		Value: []byte("third"),
+	})
+	require.NoError(t, err)
 
-    record, err = logs[2].Read(off)
-    require.NoError(t, err)
-    require.Equal(t, []byte("third"), record.Value)
-    require.Equal(t, off, record.Offset)
+	time.Sleep(50 * time.Millisecond)
+
+	record, err := logs[1].Read(off)
+	require.IsType(t, api.ErrOffsetOutOfRange{}, err)
+	require.Nil(t, record)
+
+	record, err = logs[2].Read(off)
+	require.NoError(t, err)
+	require.Equal(t, []byte("third"), record.Value)
+	require.Equal(t, off, record.Offset)
 }

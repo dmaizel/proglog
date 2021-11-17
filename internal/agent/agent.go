@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
-	"io"
-	"net"
-	"sync"
 	"time"
 
 	"github.com/dmaizel/proglog/internal/auth"
 	"github.com/dmaizel/proglog/internal/discovery"
 	"github.com/dmaizel/proglog/internal/log"
+
+	"io"
+	"net"
+	"sync"
+
 	"github.com/dmaizel/proglog/internal/server"
 	"github.com/hashicorp/raft"
 	"github.com/soheilhy/cmux"
@@ -129,8 +131,9 @@ func (a *Agent) setupServer() error {
 		a.Config.ACLPolicyFile,
 	)
 	serverConfig := &server.Config{
-		Authorizer: authorizer,
-		CommitLog:  a.log,
+		Authorizer:  authorizer,
+		CommitLog:   a.log,
+		GetServerer: a.log,
 	}
 	var opts []grpc.ServerOption
 	if a.Config.ServerTLSConfig != nil {
