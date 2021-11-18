@@ -32,7 +32,7 @@ func (r *Resolver) Build(target resolver.Target, cc resolver.ClientConn, opts re
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(opts.DialCreds))
 	}
 	r.serviceConfig = r.clientConn.ParseServiceConfig(
-		fmt.Sprintf(`{"loadbalancingConfig":[{"%":{}}]}`, Name),
+		fmt.Sprintf(`{"loadBalancingConfig":[{"%s":{}}]}`, Name),
 	)
 	var err error
 	r.resolverConn, err = grpc.Dial(target.Endpoint, dialOpts...)
@@ -59,7 +59,7 @@ var _ resolver.Resolver = (*Resolver)(nil)
 // and updating the client connection with the servers.
 func (r *Resolver) ResolveNow(resolver.ResolveNowOptions) {
 	r.mu.Lock()
-	defer r.mu.Lock()
+	defer r.mu.Unlock()
 	client := api.NewLogClient(r.resolverConn)
 	// get cluster and then set on cc attributes
 	ctx := context.Background()
@@ -69,6 +69,7 @@ func (r *Resolver) ResolveNow(resolver.ResolveNowOptions) {
 			"failed to resolve server",
 			zap.Error(err),
 		)
+        return
 	}
 	var addrs []resolver.Address
 	for _, server := range res.Servers {
